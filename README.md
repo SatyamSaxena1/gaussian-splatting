@@ -163,6 +163,12 @@ gaussian-splatting/
 
 ## Documentation
 
+- **[PIPELINE_DOCUMENTATION.md](PIPELINE_DOCUMENTATION.md)** - Complete technical pipeline guide
+  - All 7 processing stages with code examples
+  - Multi-GPU VDA architecture details
+  - YOLO11 training and tracking workflow
+  - 3D position estimation algorithms
+  - Performance benchmarks and troubleshooting
 - **[START_HERE.md](START_HERE.md)** - Quick start guide
 - **[VDA_IMPLEMENTATION_SUMMARY.md](VDA_IMPLEMENTATION_SUMMARY.md)** - Multi-GPU depth processing details
 - **[VIDEO_PROCESSING_GUIDE.md](VIDEO_PROCESSING_GUIDE.md)** - Complete video processing workflow
