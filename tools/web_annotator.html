@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YOLO Annotator</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #2c3e50;
+            color: white;
+        }
+        #container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        #canvas-container {
+            position: relative;
+            display: inline-block;
+            background: black;
+        }
+        #canvas {
+            cursor: crosshair;
+            display: block;
+        }
+        .controls {
+            margin: 20px 0;
+            padding: 20px;
+            background: #34495e;
+            border-radius: 8px;
+        }
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            background: #3498db;
+            color: white;
+            border: none;
+            border-radius: 4px;
+        }
+        button:hover {
+            background: #2980b9;
+        }
+        button:disabled {
+            background: #7f8c8d;
+            cursor: not-allowed;
+        }
+        .danger {
+            background: #e74c3c;
+        }
+        .danger:hover {
+            background: #c0392b;
+        }
+        .success {
+            background: #27ae60;
+        }
+        .success:hover {
+            background: #229954;
+        }
+        #info {
+            padding: 10px;
+            background: #34495e;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .bbox-info {
+            margin: 10px 0;
+            padding: 10px;
+            background: #1abc9c;
+            border-radius: 4px;
+        }
+        #instructions {
+            background: #f39c12;
+            color: black;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        #instructions h3 {
+            margin-top: 0;
+        }
+    </style>
+</head>
+<body>
+    <div id="container">
+        <div id="instructions">
+            <h3>📋 Instructions:</h3>
+            <ol>
+                <li><strong>Click and drag</strong> on the image to draw a box around the PANTOGRAPH</li>
+                <li>Press <strong>ENTER</strong> or click <strong>Save Label</strong> to save the annotation</li>
+                <li>Press <strong>D</strong> or click <strong>Next Image</strong> to move forward</li>
+                <li>Press <strong>A</strong> or click <strong>Previous Image</strong> to go back</li>
+                <li>Press <strong>C</strong> or click <strong>Clear Box</strong> to redraw</li>
+                <li>Download labels.json when done, then run the conversion script</li>
+            </ol>
+        </div>
+
+        <div class="controls">
+            <button onclick="prevImage()">← Previous (A)</button>
+            <button onclick="nextImage()">Next (D) →</button>
+            <button onclick="clearBox()" class="danger">Clear Box (C)</button>
+            <button onclick="saveLabel()" class="success">Save Label (Enter)</button>
+            <button onclick="downloadLabels()" style="background: #8e44ad">Download All Labels</button>
+        </div>
+
+        <div id="info">
+            <div><strong>Image:</strong> <span id="current-image">-</span> / <span id="total-images">-</span></div>
+            <div><strong>Filename:</strong> <span id="filename">-</span></div>
+            <div><strong>Labels saved:</strong> <span id="saved-count">0</span></div>
+        </div>
+
+        <div id="bbox-info" class="bbox-info" style="display: none;">
+            <strong>Current Box:</strong> <span id="bbox-coords">-</span>
+        </div>
+
+        <div id="canvas-container">
+            <canvas id="canvas"></canvas>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        let images = [];
+        let currentIndex = 0;
+        let currentImage = null;
+        let isDrawing = false;
+        let startX, startY, endX, endY;
+        let labels = {}; // Store all labels
+        
+        // Initialize - load image list from directory
+        async function init() {
+            // For security reasons, we can't read directory from browser
+            // User needs to provide image list
+            const imageCount = 180; // From prepare_yolo_dataset.py
+            for (let i = 1; i <= imageCount; i++) {
+                images.push(`frame_${String(i).padStart(5, '0')}.jpg`);
+            }
+            document.getElementById('total-images').textContent = images.length;
+            loadImage(0);
+        }
+        
+        function loadImage(index) {
+            if (index < 0 || index >= images.length) return;
+            
+            currentIndex = index;
+            const filename = images[index];
+            const img = new Image();
+            
+            img.onload = function() {
+                currentImage = img;
+                canvas.width = img.width;
+                canvas.height = img.height;
+                drawImage();
+                updateInfo();
+                
+                // Load existing label if any
+                if (labels[filename]) {
+                    const box = labels[filename];
+                    startX = box.x1;
+                    startY = box.y1;
+                    endX = box.x2;
+                    endY = box.y2;
+                    drawBox();
+                }
+            };
+            
+            img.onerror = function() {
+                console.error('Failed to load:', filename);
+                alert('Failed to load image. Make sure you are running this from the correct directory.');
+            };
+            
+            // Adjust path based on where this HTML is served from
+            img.src = `images/train/${filename}`;
+        }
+        
+        function drawImage() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            if (currentImage) {
+                ctx.drawImage(currentImage, 0, 0);
+            }
+        }
+        
+        function drawBox() {
+            drawImage();
+            if (startX !== undefined && endX !== undefined) {
+                ctx.strokeStyle = '#00ff00';
+                ctx.lineWidth = 3;
+                ctx.strokeRect(startX, startY, endX - startX, endY - startY);
+                
+                // Show coordinates
+                const w = Math.abs(endX - startX);
+                const h = Math.abs(endY - startY);
+                document.getElementById('bbox-info').style.display = 'block';
+                document.getElementById('bbox-coords').textContent = 
+                    `[${Math.round(startX)}, ${Math.round(startY)}] ${Math.round(w)}x${Math.round(h)}`;
+            }
+        }
+        
+        function updateInfo() {
+            document.getElementById('current-image').textContent = currentIndex + 1;
+            document.getElementById('filename').textContent = images[currentIndex];
+            document.getElementById('saved-count').textContent = Object.keys(labels).length;
+        }
+        
+        canvas.addEventListener('mousedown', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            startX = e.clientX - rect.left;
+            startY = e.clientY - rect.top;
+            isDrawing = true;
+        });
+        
+        canvas.addEventListener('mousemove', (e) => {
+            if (!isDrawing) return;
+            const rect = canvas.getBoundingClientRect();
+            endX = e.clientX - rect.left;
+            endY = e.clientY - rect.top;
+            drawBox();
+        });
+        
+        canvas.addEventListener('mouseup', () => {
+            isDrawing = false;
+        });
+        
+        function saveLabel() {
+            if (startX === undefined || endX === undefined) {
+                alert('Draw a box first!');
+                return;
+            }
+            
+            const filename = images[currentIndex];
+            const x1 = Math.min(startX, endX);
+            const y1 = Math.min(startY, endY);
+            const x2 = Math.max(startX, endX);
+            const y2 = Math.max(startY, endY);
+            
+            // Convert to YOLO format (normalized center x, center y, width, height)
+            const imgW = canvas.width;
+            const imgH = canvas.height;
+            const centerX = (x1 + x2) / 2 / imgW;
+            const centerY = (y1 + y2) / 2 / imgH;
+            const width = (x2 - x1) / imgW;
+            const height = (y2 - y1) / imgH;
+            
+            labels[filename] = {
+                x1, y1, x2, y2,
+                yolo: `0 ${centerX.toFixed(6)} ${centerY.toFixed(6)} ${width.toFixed(6)} ${height.toFixed(6)}`
+            };
+            
+            updateInfo();
+            alert(`✅ Label saved for ${filename}`);
+        }
+        
+        function clearBox() {
+            startX = undefined;
+            startY = undefined;
+            endX = undefined;
+            endY = undefined;
+            drawImage();
+            document.getElementById('bbox-info').style.display = 'none';
+        }
+        
+        function nextImage() {
+            clearBox();
+            loadImage(currentIndex + 1);
+        }
+        
+        function prevImage() {
+            clearBox();
+            loadImage(currentIndex - 1);
+        }
+        
+        function downloadLabels() {
+            if (Object.keys(labels).length === 0) {
+                alert('No labels to download!');
+                return;
+            }
+            
+            const blob = new Blob([JSON.stringify(labels, null, 2)], {type: 'application/json'});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'annotations.json';
+            a.click();
+            URL.revokeObjectURL(url);
+            
+            alert(`✅ Downloaded ${Object.keys(labels).length} labels`);
+        }
+        
+        // Keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'd' || e.key === 'D') {
+                nextImage();
+            } else if (e.key === 'a' || e.key === 'A') {
+                prevImage();
+            } else if (e.key === 'c' || e.key === 'C') {
+                clearBox();
+            } else if (e.key === 'Enter') {
+                saveLabel();
+            }
+        });
+        
+        init();
+    </script>
+</body>
+</html>
