@@ -4,53 +4,53 @@ A specialized 3D reconstruction pipeline for railway pantograph contact point tr
 
 ## Project Overview
 
-This project extends the original [3D Gaussian Splatting](https://github.com/graphdeco-inria/gaussian-splatting) framework to solve a specific railway infrastructure problem: **tracking pantograph contact points on overhead catenary systems from moving train-mounted cameras**.
+This project extends the original [3D Gaussian Splatting](https://github.com/graphdeco-inria/gaussian-splatting) framework for railway pantograph contact point tracking on overhead catenary systems from moving train-mounted cameras.
 
-**Real-world application**: Railway operators need to monitor where pantographs (the equipment that collects power from overhead wires) make contact with catenary systems to prevent wear, predict maintenance, and ensure reliable power collection.
+Railway operators monitor where pantographs (equipment collecting power from overhead wires) contact catenary systems to prevent wear, predict maintenance, and maintain reliable power collection.
 
 ### The Challenge
 
-Traditional visual inspection methods struggle with:
-- **High-speed motion blur** from moving trains (30+ FPS video)
-- **Complex 3D geometry** of overhead catenary infrastructure
-- **Dynamic vs static separation** - pantograph moves while scenery is static
-- **Precise 3D positioning** needed for wear analysis
-- **Temporal consistency** - tracking same contact point across frames
+Traditional visual inspection methods fail on:
+- High-speed motion blur from moving trains (30+ FPS video)
+- Complex 3D geometry of overhead catenary infrastructure
+- Dynamic vs static separation - pantograph moves while scenery stays fixed
+- Precise 3D positioning requirements for wear analysis
+- Temporal consistency - same contact point must track across frames
 
 ### Our Solution
 
-Through iterative development over 117 development sessions, we built a complete pipeline:
+117 development sessions produced this pipeline:
 
-1. **Video preprocessing** - Frame extraction from train-mounted camera footage
-2. **Motion segmentation** - Separate semi-static pantograph from static infrastructure  
-3. **Temporally-consistent depth** - Video Depth Anything (VDA) for smooth depth maps
-4. **Robust tracking** - YOLO11 detection + Kalman filtering for smooth trajectories
-5. **3D reconstruction** - Gaussian Splatting for photorealistic static scene models
-6. **Industry visualization** - USD export for analysis in tools like Pixar's USDView
+1. Video preprocessing - extract frames from train-mounted camera footage
+2. Motion segmentation - separate semi-static pantograph from static infrastructure  
+3. Temporally-consistent depth - Video Depth Anything for smooth depth maps
+4. Tracking - YOLO11 detection with Kalman filtering for smooth trajectories
+5. 3D reconstruction - Gaussian Splatting for photorealistic static scene models
+6. Industry visualization - USD export for analysis in standard tools
 
-**Key innovation**: Multi-GPU video processing with crash-resistant design, achieving 5× speedup while handling long-running tasks that caused IDE crashes.
+Multi-GPU video processing with crash-resistant design achieved 5× speedup while handling long-running tasks that killed IDE processes.
 
 ## Key Features
 
-### 🎥 Video Processing Pipeline
+### Video Processing Pipeline
 - Frame extraction and preprocessing
 - Motion-based segmentation (static infrastructure vs. dynamic pantograph)
 - Multi-GPU depth estimation (5× speedup)
 - Temporal consistency across frames
 
-### 🎯 Contact Point Tracking
+### Contact Point Tracking
 - YOLO11-based pantograph detection
 - Kalman filtering for smooth trajectories
 - 3D position estimation using depth maps
 - Outlier removal and interpolation
 
-### 🏗️ 3D Reconstruction
+### 3D Reconstruction
 - Static scene reconstruction with Gaussian Splatting
 - Dynamic object tracking overlaid on static model
 - Pole detection using RANSAC
 - USD export for visualization in industry tools (e.g., USD View)
 
-### ⚡ Multi-GPU Optimization
+### Multi-GPU Optimization
 - Video chunking for parallel processing
 - 5× faster depth estimation on 5× GTX 1660 Ti GPUs
 - Crash-resistant processing with automatic recovery
@@ -173,57 +173,57 @@ gaussian-splatting/
 ## Key Innovations
 
 ### 1. Multi-GPU Video Depth Processing
-**Problem**: Single GPU took ~3 hours for 6,500 frames. VSCode/IDE crashes killed background processes.
+Single GPU processing took 3 hours for 6,500 frames. VSCode/IDE crashes killed background processes.
 
-**Solution**: 
+Implementation: 
 - Video chunking with 32-frame overlap for temporal consistency
-- Sequential processing across 5 GPUs (not parallel to avoid crashes)
-- Crash-resistant standalone scripts (survive IDE/system crashes)
-- **Result**: 35 minutes total (5× speedup), 99% track enrichment success
+- Sequential processing across 5 GPUs (parallel attempts failed due to crashes)
+- Crash-resistant standalone scripts that survive IDE/system crashes
+- Result: 35 minutes total (5× speedup), 99% track enrichment success
 
 ### 2. Temporal Depth Consistency
-**Problem**: Single-frame depth methods (MiDaS) caused jitter in tracking.
+Single-frame depth methods (MiDaS) caused jitter in tracking.
 
-**Solution**:
+Implementation:
 - Switched to Video Depth Anything (temporal CNN model)
 - Maintains smooth transitions between frames
 - Better for tracking moving objects
-- **Trade-off**: Requires FP32 on GTX 1660 Ti (no Tensor Cores for FP16)
+- Trade-off: Requires FP32 on GTX 1660 Ti (no Tensor Cores for FP16)
 
 ### 3. Static/Dynamic Separation
-**Problem**: Pantograph moves while infrastructure is static - standard reconstruction fails.
+Pantograph moves while infrastructure stays static - standard reconstruction fails.
 
-**Solution**:
+Implementation:
 - Motion-based segmentation identifies pantograph as foreground
 - Separate reconstruction: static (Gaussian Splatting) + dynamic (tracking)
 - Depth-aware backprojection for 3D contact positions
-- **Result**: Accurate 3D positions on reconstructed infrastructure
+- Result: Accurate 3D positions on reconstructed infrastructure
 
 ### 4. Production-Ready Tracking Pipeline
-**Evolution**: Optical flow → Manual labeling → YOLO11 → Kalman filtering → Outlier removal
+Evolution: Optical flow → Manual labeling → YOLO11 → Kalman filtering → Outlier removal
 
-**Components**:
+Components:
 - YOLO11 custom-trained on pantograph contact points
 - Kalman filter for smooth trajectories (handles occlusion)
 - Outlier detection and cubic interpolation
 - USD export for industry-standard visualization tools
 
-**Result**: Smooth, accurate 3D trajectories suitable for wear analysis
+Result: Smooth, accurate 3D trajectories suitable for wear analysis
 
 ## Development Journey
 
-This project evolved through **117 development sessions** documented in GitHub Copilot chat history. The actual development path revealed several misconceptions in initial planning and forced multiple architectural pivots.
+117 development sessions documented in GitHub Copilot chat history. The actual development path involved multiple misconceptions and forced architectural pivots.
 
-### What the Chat History Revealed
+### Chat History Analysis
 
-Analysis of the full conversation log shows:
-- **YOLO version progression**: Started with YOLOv8 (Session 34), upgraded to YOLO11 by Session 55 after evaluating performance on Pantograph.v1i dataset
-- **Three process isolation attempts**: nohup, screen, and tmux all failed before settling on standalone scripts (Sessions 93-98)
-- **FP16 debugging required external research**: GTX 1660 Ti FP16 issues only documented in GitHub issues, not official VDA docs - needed Context7 MCP to discover (Session 88)
-- **Bounding box failures were widespread**: Initial auto-generated boxes "tracked everything except the pantograph" (Session 49), forcing complete restart with manual labeling
-- **VSCode crashes were systematic**: Not isolated incidents - crashed repeatedly during long GPU jobs, triggering fundamental rearchitecture
+Full conversation log analysis shows:
+- YOLO version progression: Started with YOLOv8 (Session 34), upgraded to YOLO11 by Session 55 after evaluating performance on Pantograph.v1i dataset
+- Three process isolation attempts: nohup, screen, and tmux all failed before settling on standalone scripts (Sessions 93-98)
+- FP16 debugging required external research: GTX 1660 Ti FP16 issues only documented in GitHub issues, not official VDA docs - needed Context7 MCP to discover (Session 88)
+- Bounding box failures were widespread: Initial auto-generated boxes "tracked everything except the pantograph" (Session 49), forcing complete restart with manual labeling
+- VSCode crashes were systematic: Not isolated incidents - crashed repeatedly during long GPU jobs, triggering fundamental rearchitecture
 
-The chat log contradicts common assumptions about iterative development. Most "progress" sessions were actually debugging previous approaches. Phase 5 (production hardening) consumed 27 sessions largely undoing complexity added in Phases 1-4.
+Chat log contradicts common assumptions about iterative development. Most "progress" sessions involved debugging previous approaches. Phase 5 (production hardening) consumed 27 sessions largely undoing complexity added in Phases 1-4.
 
 ### Phase 1: Foundation (Sessions 1-20)
 - Integrated USD visualization for development feedback
@@ -268,15 +268,15 @@ Session 49 quote: "the green bounding box was around everything except the panto
 
 The standalone script approach emerged from necessity, not design. Initial parallel multi-GPU architecture proved less reliable than sequential processing across GPUs.
 
-**Key Learnings**:
+### Key Learnings
 - Long-running GPU tasks need crash isolation from IDE (discovered through failure, not foresight)
-- Temporal consistency critical for tracking applications (MiDaS jitter made this obvious)
+- Temporal consistency matters for tracking applications (MiDaS jitter made this obvious)
 - GTX 1660 Ti lacks Tensor Cores - FP16 autocast produces NaN in VDA (undocumented in main docs)
-- Sequential multi-GPU more reliable than parallel for long jobs (counterintuitive but empirically proven)
+- Sequential multi-GPU proved more reliable than parallel for long jobs (counterintuitive but empirically verified)
 - Auto-generated training data fails for specialized objects (manual labeling unavoidable)
-- Chat history shows 27 of 117 sessions were debugging/rollbacks, not forward progress
+- Chat history shows 27 of 117 sessions involved debugging/rollbacks, not forward progress
 
-**What Wasn't Planned**:
+### Unplanned Architectural Decisions
 - YOLO version upgrade (evaluated v8, switched to v11 based on results)
 - Standalone execution architecture (forced by IDE instability)
 - FP32-only processing (discovered GTX 1660 Ti limitation mid-development)
