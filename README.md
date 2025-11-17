@@ -24,7 +24,7 @@ Through iterative development over 117 development sessions, we built a complete
 1. **Video preprocessing** - Frame extraction from train-mounted camera footage
 2. **Motion segmentation** - Separate semi-static pantograph from static infrastructure  
 3. **Temporally-consistent depth** - Video Depth Anything (VDA) for smooth depth maps
-4. **Robust tracking** - YOLOv8 detection + Kalman filtering for smooth trajectories
+4. **Robust tracking** - YOLO11 detection + Kalman filtering for smooth trajectories
 5. **3D reconstruction** - Gaussian Splatting for photorealistic static scene models
 6. **Industry visualization** - USD export for analysis in tools like Pixar's USDView
 
@@ -39,7 +39,7 @@ Through iterative development over 117 development sessions, we built a complete
 - Temporal consistency across frames
 
 ### 🎯 Contact Point Tracking
-- YOLOv8-based pantograph detection
+- YOLO11-based pantograph detection
 - Kalman filtering for smooth trajectories
 - 3D position estimation using depth maps
 - Outlier removal and interpolation
@@ -61,7 +61,7 @@ Through iterative development over 117 development sessions, we built a complete
 ### Core Technologies
 - **3D Gaussian Splatting**: Scene reconstruction
 - **Video Depth Anything (VDA)**: Temporally-consistent monocular depth estimation
-- **YOLOv8**: Object detection for pantograph tracking
+- **YOLO11**: Object detection for pantograph tracking
 - **COLMAP**: Structure-from-Motion for camera pose estimation
 - **PyTorch**: Deep learning framework
 - **USD (Universal Scene Description)**: 3D data exchange format
@@ -200,10 +200,10 @@ gaussian-splatting/
 - **Result**: Accurate 3D positions on reconstructed infrastructure
 
 ### 4. Production-Ready Tracking Pipeline
-**Evolution**: Optical flow → Manual labeling → YOLOv8 → Kalman filtering → Outlier removal
+**Evolution**: Optical flow → Manual labeling → YOLO11 → Kalman filtering → Outlier removal
 
 **Components**:
-- YOLOv8 custom-trained on pantograph contact points
+- YOLO11 custom-trained on pantograph contact points
 - Kalman filter for smooth trajectories (handles occlusion)
 - Outlier detection and cubic interpolation
 - USD export for industry-standard visualization tools
@@ -223,6 +223,7 @@ This project evolved through **117 development sessions** solving real engineeri
 - Identified pantograph separation challenge
 - Built depth-based segmentation pipeline
 - Migrated from optical flow to YOLOv8 (more robust)
+- Upgraded YOLOv8 → YOLO11 (Session 55, using Pantograph.v1i dataset)
 - Manual labeling and training data curation with LabelImg
 - Debugged bounding box failures
 
@@ -274,7 +275,7 @@ This project builds upon:
 
 ### Dependencies
 - **Depth Anything V2** - Monocular depth estimation
-- **YOLOv8** (Ultralytics) - Object detection
+- **YOLO11** (Ultralytics) - Object detection (upgraded from YOLOv8)
 - **COLMAP** - Structure-from-Motion
 - **PyTorch** - Deep learning framework
 - **OpenCV** - Video processing
@@ -331,7 +332,7 @@ For questions about:
 This work was developed for railway infrastructure monitoring applications. We thank:
 - The original Gaussian Splatting authors for their groundbreaking work
 - The Depth Anything V2 team for temporal depth estimation
-- The open-source community for tools like COLMAP, YOLOv8, and USD
+- The open-source community for tools like COLMAP, YOLO11, and USD
 
 ---
 
