@@ -84,13 +84,22 @@ class KalmanFilter3D:
         
         return self.x[:3].copy()
     
-    def update(self, measurement):
-        """Update state with measurement."""
+    def update(self, measurement, R=None):
+        """
+        Update state with measurement.
+        
+        Args:
+            measurement: Measurement vector [x, y, z]
+            R: Optional custom measurement noise covariance for this step
+        """
         # Innovation (measurement residual)
         y = measurement - self.H @ self.x
         
+        # Use custom R if provided, else default
+        R_curr = R if R is not None else self.R
+        
         # Innovation covariance
-        S = self.H @ self.P @ self.H.T + self.R
+        S = self.H @ self.P @ self.H.T + R_curr
         
         # Kalman gain
         K = self.P @ self.H.T @ np.linalg.inv(S)
@@ -131,7 +140,7 @@ def apply_kalman_filter(tracks, process_noise=0.1, measurement_noise=1.0, fps=30
     Args:
         tracks: List of tracking data
         process_noise: Process noise parameter
-        measurement_noise: Measurement noise parameter
+        measurement_noise: Measurement noise parameter (base value)
         fps: Frame rate for dt calculation
     
     Returns:
@@ -152,6 +161,31 @@ def apply_kalman_filter(tracks, process_noise=0.1, measurement_noise=1.0, fps=30
         if track['detected']:
             measurement = np.array(track['contact_3d'])
             
+            # Dynamic Measurement Noise
+            # If we have depth_std, use it to scale the Z-axis noise
+            # Base noise is measurement_noise (e.g. 1.0)
+            # If depth_std is high, we trust the measurement LESS (higher R)
+            
+            R_dynamic = None
+            depth_std = track.get('depth_std', 0.0)
+            
+            if depth_std > 0:
+                # Scale factor: if std is 0.1 (10cm), variance is 0.01
+                # We want to scale the Z-noise component
+                # Heuristic: R_z = base_noise + (scale * depth_std)^2
+                # Let's say base noise covers XY error (pixel error).
+                # Z error is dominated by depth estimation error.
+                
+                base_R = np.eye(3) * measurement_noise
+                
+                # Boost Z noise based on depth_std
+                # We multiply by a factor (e.g. 100) because depth_std is in meters/units
+                # and we want to be conservative when it's noisy.
+                z_noise_variance = measurement_noise + (depth_std * 10.0)**2
+                
+                base_R[2, 2] = z_noise_variance
+                R_dynamic = base_R
+            
             if not kf.initialized:
                 # Initialize with first measurement
                 kf.initialize(measurement)
@@ -160,7 +194,7 @@ def apply_kalman_filter(tracks, process_noise=0.1, measurement_noise=1.0, fps=30
             else:
                 # Predict then update
                 kf.predict()
-                filtered_pos = kf.update(measurement)
+                filtered_pos = kf.update(measurement, R=R_dynamic)
                 filtered_vel = kf.get_velocity()
             
             track_copy['contact_3d'] = filtered_pos.tolist()
@@ -215,6 +249,8 @@ def compute_filtering_metrics(original_tracks, filtered_tracks):
     def compute_smoothness(positions):
         velocities = np.diff(positions, axis=0)
         accelerations = np.diff(velocities, axis=0)
+        if len(accelerations) == 0:
+            return 0.0
         return np.mean(np.linalg.norm(accelerations, axis=1))
     
     original_smoothness = compute_smoothness(original_positions)
